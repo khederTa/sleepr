@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo
+    container_name: mongodb
+    restart: unless-stopped
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "quit(0)"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  reservations:
+    build:
+      context: .
+      dockerfile: ./apps/reservations/Dockerfile
+      target: development
+    command: pnpm run start:dev reservations
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./:/src/app:deleg
+      - node_modules_reservations:/src/app/node_modules
+    env_file:
+      - .env
+    environment:
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/sleepr
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  auth:
+    build:
+      context: .
+      dockerfile: ./apps/auth/Dockerfile
+      target: development
+    command: pnpm run start:dev auth
+    ports:
+      - '3001:3001'
+    volumes:
+      - ./:/src/app:deleg
+      - node_modules_auth:/src/app/node_modules
+    env_file:
+      - .env
+    environment:
+      - PORT=3001
+      - MONGODB_URI=mongodb://mongo:27017/sleepr
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+volumes:
+  mongo-data:
+  node_modules_reservations:
+  node_modules_auth:
